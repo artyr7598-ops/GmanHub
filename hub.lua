@@ -85,10 +85,8 @@ local autoSkillEnabled = false
 local skillDelay = 1
 local activeKeys = {}
 
--- List of available keys to toggle
 local KeyList = {"Q", "E", "R", "T", "Y", "F", "G", "H", "Z", "X", "C", "V", "B", "Space"}
 
--- Create a toggle for each key
 for _, keyName in ipairs(KeyList) do
     CombatTab:CreateToggle({
         Name = keyName,
@@ -128,7 +126,6 @@ CombatTab:CreateToggle({
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
                     
                     if char and hum and hum.Health > 0 then
-                        -- Loop through all keys and press the active ones
                         for _, keyName in ipairs(KeyList) do
                             if activeKeys[keyName] then
                                 local keyCode = Enum.KeyCode[keyName]
