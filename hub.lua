@@ -15,7 +15,7 @@ local Window = Rayfield:CreateWindow({
     ToggleUIKeybind = "K"
 })
 
--- ===== ВКЛАДКА 1: HUNTER =====
+-- ===== TAB 1: HUNTER =====
 local HunterTab = Window:CreateTab("Hunter")
 local HuntSection = HunterTab:CreateSection("Rare NPC Hunter")
 
@@ -78,17 +78,16 @@ Workspace.DescendantAdded:Connect(function(obj)
 end)
 
 
--- ===== ВКЛАДКА 2: COMBAT (ADVANCED AUTO SKILLS) =====
+-- ===== TAB 2: COMBAT =====
 local CombatTab = Window:CreateTab("Combat")
 local SkillSection = CombatTab:CreateSection("Auto Skills")
 
 local autoSkillEnabled = false
-local comboString = "Q" -- По умолчанию Q
+local comboString = "Q"
 local skillDelay = 1.5
 local aerialOnly = false
 local autoJump = false
 
--- Ввод комбо (например: Q,E или Space,Space)
 SkillSection:CreateInput({
     Name = "Combo Keys (e.g. Q,E or Space,Space)",
     PlaceholderText = "Q,E",
@@ -99,7 +98,6 @@ SkillSection:CreateInput({
     end
 })
 
--- Задержка
 SkillSection:CreateSlider({
     Name = "Delay (seconds)",
     Range = {0.1, 10},
@@ -112,7 +110,6 @@ SkillSection:CreateSlider({
     end,
 })
 
--- Только в воздухе (Aerial)
 SkillSection:CreateToggle({
     Name = "Aerial Only (Only in air)",
     CurrentValue = false,
@@ -122,7 +119,6 @@ SkillSection:CreateToggle({
     end,
 })
 
--- Авто-прыжок (если нужно аэрал, а ты на земле)
 SkillSection:CreateToggle({
     Name = "Auto Jump for Aerial",
     CurrentValue = false,
@@ -132,7 +128,6 @@ SkillSection:CreateToggle({
     end,
 })
 
--- Главный тумблер
 SkillSection:CreateToggle({
     Name = "Enable Auto Skill",
     CurrentValue = false,
@@ -149,20 +144,17 @@ SkillSection:CreateToggle({
                     if char and hum and hum.Health > 0 then
                         local isInAir = (hum.FloorMaterial == Enum.Material.Air)
                         
-                        -- Проверка на Aerial
                         local canExecute = true
                         if aerialOnly and not isInAir then
                             canExecute = false
-                            -- Если включен авто-прыжок, прыгаем
                             if autoJump then
                                 hum.Jump = true
-                                task.wait(0.2) -- Ждем пока оторвется от земли
+                                task.wait(0.2)
                                 canExecute = true
                             end
                         end
 
                         if canExecute then
-                            -- Разбиваем комбо по запятой
                             local keys = string.split(comboString, ",")
                             
                             for _, keyName in ipairs(keys) do
@@ -170,16 +162,14 @@ SkillSection:CreateToggle({
                                 local keyCode = Enum.KeyCode[key]
                                 
                                 if keyCode then
-                                    -- Нажимаем
                                     pcall(function()
                                         VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
                                     end)
-                                    task.wait(0.05) -- Микро-задержка
-                                    -- Отпускаем
+                                    task.wait(0.05)
                                     pcall(function()
                                         VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
                                     end)
-                                    task.wait(0.05) -- Пауза между клавишами в комбо
+                                    task.wait(0.05)
                                 end
                             end
                         end
