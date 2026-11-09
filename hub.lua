@@ -17,13 +17,13 @@ local Window = Rayfield:CreateWindow({
 
 -- ===== TAB 1: HUNTER =====
 local HunterTab = Window:CreateTab("Hunter")
-local HuntSection = HunterTab:CreateSection("Rare NPC Hunter")
+HunterTab:CreateSection("Rare NPC Hunter")
 
 local isDetecting = false
 local keyword = "agent"
 local doTeleport = false
 
-HuntSection:CreateInput({
+HunterTab:CreateInput({
     Name = "NPC Name (keyword)",
     PlaceholderText = "agent, secret, case",
     RemoveTextAfterFocusLost = false,
@@ -33,14 +33,14 @@ HuntSection:CreateInput({
     end
 })
 
-HuntSection:CreateToggle({
+HunterTab:CreateToggle({
     Name = "Teleport to NPC",
     CurrentValue = false,
     Flag = "AutoTP",
     Callback = function(state) doTeleport = state end
 })
 
-HuntSection:CreateToggle({
+HunterTab:CreateToggle({
     Name = "Enable Detector",
     CurrentValue = false,
     Flag = "DetectorToggle",
@@ -80,7 +80,7 @@ end)
 
 -- ===== TAB 2: COMBAT =====
 local CombatTab = Window:CreateTab("Combat")
-local SkillSection = CombatTab:CreateSection("Auto Skills")
+CombatTab:CreateSection("Auto Skills")
 
 local autoSkillEnabled = false
 local comboString = "Q"
@@ -88,7 +88,7 @@ local skillDelay = 1.5
 local aerialOnly = false
 local autoJump = false
 
-SkillSection:CreateInput({
+CombatTab:CreateInput({
     Name = "Combo Keys (e.g. Q,E or Space,Space)",
     PlaceholderText = "Q,E",
     RemoveTextAfterFocusLost = false,
@@ -98,7 +98,7 @@ SkillSection:CreateInput({
     end
 })
 
-SkillSection:CreateSlider({
+CombatTab:CreateSlider({
     Name = "Delay (seconds)",
     Range = {0.1, 10},
     Increment = 0.1,
@@ -110,7 +110,7 @@ SkillSection:CreateSlider({
     end,
 })
 
-SkillSection:CreateToggle({
+CombatTab:CreateToggle({
     Name = "Aerial Only (Only in air)",
     CurrentValue = false,
     Flag = "AerialToggle",
@@ -119,7 +119,7 @@ SkillSection:CreateToggle({
     end,
 })
 
-SkillSection:CreateToggle({
+CombatTab:CreateToggle({
     Name = "Auto Jump for Aerial",
     CurrentValue = false,
     Flag = "AutoJumpToggle",
@@ -128,7 +128,7 @@ SkillSection:CreateToggle({
     end,
 })
 
-SkillSection:CreateToggle({
+CombatTab:CreateToggle({
     Name = "Enable Auto Skill",
     CurrentValue = false,
     Flag = "AutoSkillToggle",
