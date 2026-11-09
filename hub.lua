@@ -1,4 +1,4 @@
--- ===== STBB Gman Hub (Toggle Auto Skills) =====
+-- ===== STBB Gman Hub (Combat & Teleport) =====
 getgenv().SecureMode = true
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
@@ -15,69 +15,7 @@ local Window = Rayfield:CreateWindow({
     ToggleUIKeybind = "K"
 })
 
--- ===== TAB 1: HUNTER =====
-local HunterTab = Window:CreateTab("Hunter")
-HunterTab:CreateSection("Rare NPC Hunter")
-
-local isDetecting = false
-local keyword = "agent"
-local doTeleport = false
-
-HunterTab:CreateInput({
-    Name = "NPC Name (keyword)",
-    PlaceholderText = "agent, secret, case",
-    RemoveTextAfterFocusLost = false,
-    Flag = "NPCKeyword",
-    Callback = function(text)
-        if text ~= "" then keyword = string.lower(text) end
-    end
-})
-
-HunterTab:CreateToggle({
-    Name = "Teleport to NPC",
-    CurrentValue = false,
-    Flag = "AutoTP",
-    Callback = function(state) doTeleport = state end
-})
-
-HunterTab:CreateToggle({
-    Name = "Enable Detector",
-    CurrentValue = false,
-    Flag = "DetectorToggle",
-    Callback = function(state)
-        isDetecting = state
-        if state then
-            Rayfield:Notify({Title = "Searching", Content = "Scanning for '"..keyword.."'...", Duration = 3})
-        end
-    end
-})
-
-Workspace.DescendantAdded:Connect(function(obj)
-    if not isDetecting then return end
-    if obj:IsA("Model") and string.find(string.lower(obj.Name), keyword) then
-        if obj:FindFirstChild("Humanoid") then
-            if not obj:FindFirstChild("HunterHighlight") then
-                local hl = Instance.new("Highlight")
-                hl.Name = "HunterHighlight"
-                hl.FillColor = Color3.fromRGB(255, 0, 0)
-                hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                hl.Parent = obj
-            end
-            local sound = Instance.new("Sound")
-            sound.SoundId = "rbxassetid://138078392"
-            sound.Volume = 10
-            sound.Parent = game.SoundService
-            sound:Play()
-
-            Rayfield:Notify({Title = "🚨 FOUND!", Content = obj.Name .. " spawned!", Duration = 10})
-            if doTeleport and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = obj:GetPivot() + Vector3.new(0, 5, 0)
-            end
-        end
-    end
-end)
-
--- ===== TAB 2: COMBAT =====
+-- ===== TAB 1: COMBAT =====
 local CombatTab = Window:CreateTab("Combat")
 CombatTab:CreateSection("Auto Skills (Toggles)")
 
@@ -143,6 +81,89 @@ CombatTab:CreateToggle({
                         end
                     end
                     task.wait(skillDelay)
+                end
+            end)
+        end
+    end
+})
+
+
+-- ===== TAB 2: TELEPORT =====
+local TPTab = Window:CreateTab("Teleport")
+TPTab:CreateSection("Enemy Teleport")
+
+local autoTPEnabled = false
+local tpDelay = 1
+
+-- Function to find the closest enemy
+local function getClosestEnemy()
+    local closest = nil
+    local shortestDist = math.huge
+    local myChar = LocalPlayer.Character
+    
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return nil end
+    local myPos = myChar.HumanoidRootPart.Position
+
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("Model") and obj ~= myChar then
+            local hum = obj:FindFirstChildOfClass("Humanoid")
+            local hrp = obj:FindFirstChild("HumanoidRootPart")
+            
+            -- Check if it's an NPC (has Humanoid, alive, and is not a player)
+            if hum and hrp and hum.Health > 0 and not Players:GetPlayerFromCharacter(obj) then
+                local dist = (hrp.Position - myPos).Magnitude
+                if dist < shortestDist then
+                    shortestDist = dist
+                    closest = hrp
+                end
+            end
+        end
+    end
+    return closest
+end
+
+-- Manual TP Button
+TPTab:CreateButton({
+    Name = "Teleport to Closest Enemy",
+    Callback = function()
+        local target = getClosestEnemy()
+        if target and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = target.CFrame * CFrame.new(0, 0, 2)
+            Rayfield:Notify({Title = "Teleported", Content = "Moved to closest enemy.", Duration = 2})
+        else
+            Rayfield:Notify({Title = "Error", Content = "No enemies found nearby.", Duration = 2})
+        end
+    end
+})
+
+TPTab:CreateSlider({
+    Name = "Auto TP Delay (seconds)",
+    Range = {0.5, 5},
+    Increment = 0.1,
+    Suffix = "s",
+    CurrentValue = 1,
+    Flag = "TPDelay",
+    Callback = function(value)
+        tpDelay = value
+    end,
+})
+
+-- Auto TP Toggle
+TPTab:CreateToggle({
+    Name = "Enable Auto TP to Closest Enemy",
+    CurrentValue = false,
+    Flag = "AutoTPToggle",
+    Callback = function(state)
+        autoTPEnabled = state
+        
+        if state then
+            task.spawn(function()
+                while autoTPEnabled do
+                    local target = getClosestEnemy()
+                    if target and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                        LocalPlayer.Character.HumanoidRootPart.CFrame = target.CFrame * CFrame.new(0, 0, 2)
+                    end
+                    task.wait(tpDelay)
                 end
             end)
         end
