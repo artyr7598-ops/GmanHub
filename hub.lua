@@ -1,4 +1,4 @@
--- ===== STBB Gman Hub (Advanced Combat) =====
+-- ===== STBB Gman Hub (Toggle Auto Skills) =====
 getgenv().SecureMode = true
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
@@ -77,33 +77,37 @@ Workspace.DescendantAdded:Connect(function(obj)
     end
 end)
 
-
 -- ===== TAB 2: COMBAT =====
 local CombatTab = Window:CreateTab("Combat")
-CombatTab:CreateSection("Auto Skills")
+CombatTab:CreateSection("Auto Skills (Toggles)")
 
 local autoSkillEnabled = false
-local comboString = "Q"
-local skillDelay = 1.5
-local aerialOnly = false
-local autoJump = false
+local skillDelay = 1
+local activeKeys = {}
 
-CombatTab:CreateInput({
-    Name = "Combo Keys (e.g. Q,E or Space,Space)",
-    PlaceholderText = "Q,E",
-    RemoveTextAfterFocusLost = false,
-    Flag = "ComboInput",
-    Callback = function(text)
-        if text ~= "" then comboString = text end
-    end
-})
+-- List of available keys to toggle
+local KeyList = {"Q", "E", "R", "T", "Y", "F", "G", "H", "Z", "X", "C", "V", "B", "Space"}
+
+-- Create a toggle for each key
+for _, keyName in ipairs(KeyList) do
+    CombatTab:CreateToggle({
+        Name = keyName,
+        CurrentValue = false,
+        Flag = keyName .. "KeyToggle",
+        Callback = function(state)
+            activeKeys[keyName] = state
+        end
+    })
+end
+
+CombatTab:CreateSection("Settings")
 
 CombatTab:CreateSlider({
-    Name = "Delay (seconds)",
-    Range = {0.1, 10},
+    Name = "Delay between presses (seconds)",
+    Range = {0.1, 5},
     Increment = 0.1,
     Suffix = "s",
-    CurrentValue = 1.5,
+    CurrentValue = 1,
     Flag = "SkillDelay",
     Callback = function(value)
         skillDelay = value
@@ -111,25 +115,7 @@ CombatTab:CreateSlider({
 })
 
 CombatTab:CreateToggle({
-    Name = "Aerial Only (Only in air)",
-    CurrentValue = false,
-    Flag = "AerialToggle",
-    Callback = function(state)
-        aerialOnly = state
-    end,
-})
-
-CombatTab:CreateToggle({
-    Name = "Auto Jump for Aerial",
-    CurrentValue = false,
-    Flag = "AutoJumpToggle",
-    Callback = function(state)
-        autoJump = state
-    end,
-})
-
-CombatTab:CreateToggle({
-    Name = "Enable Auto Skill",
+    Name = "Enable Auto Press",
     CurrentValue = false,
     Flag = "AutoSkillToggle",
     Callback = function(state)
@@ -142,25 +128,10 @@ CombatTab:CreateToggle({
                     local hum = char and char:FindFirstChildOfClass("Humanoid")
                     
                     if char and hum and hum.Health > 0 then
-                        local isInAir = (hum.FloorMaterial == Enum.Material.Air)
-                        
-                        local canExecute = true
-                        if aerialOnly and not isInAir then
-                            canExecute = false
-                            if autoJump then
-                                hum.Jump = true
-                                task.wait(0.2)
-                                canExecute = true
-                            end
-                        end
-
-                        if canExecute then
-                            local keys = string.split(comboString, ",")
-                            
-                            for _, keyName in ipairs(keys) do
-                                local key = string.upper(string.gsub(keyName, "%s+", ""))
-                                local keyCode = Enum.KeyCode[key]
-                                
+                        -- Loop through all keys and press the active ones
+                        for _, keyName in ipairs(KeyList) do
+                            if activeKeys[keyName] then
+                                local keyCode = Enum.KeyCode[keyName]
                                 if keyCode then
                                     pcall(function()
                                         VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
