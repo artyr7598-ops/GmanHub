@@ -1,4 +1,4 @@
--- ===== Gman Hub (Full Ultimate + God Mode 100%) =====
+-- ===== Gman Hub (Full Ultimate + Fixed Auto Play) =====
 getgenv().SecureMode = true
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
@@ -57,12 +57,10 @@ local function isValidEnemy(obj)
     if not hrp or hrp.Anchored or hum.WalkSpeed == 0 or hum.Health == math.huge then return false end
     
     local name = string.lower(obj.Name)
-    -- Игнорируем катсцены, базу, мусор
     local bad = {"cutscene", "utcm", "scientist", "helicopter", "shop", "quest", "base", "core", "door", "wall", "turret", "seller", "giver", "dummy", "statue"}
     for _, b in ipairs(bad) do
         if string.find(name, b) then return false end
     end
-    -- Ищем только толчков и других врагов
     if string.find(name, "toilet") or string.find(name, "skibidi") or string.find(name, "mutant") or string.find(name, "speaker") or string.find(name, "camera") then
         return true
     end
@@ -109,16 +107,14 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- ===== FLY LOOP (SKILL FRIENDLY) =====
+-- ===== FLY LOOP =====
 RunService.RenderStepped:Connect(function()
     if flyEnabled and LocalPlayer.Character then
         local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
         if hrp and hum then
-            -- Пауза полета, если игра проигрывает анимацию скилла
             local state = hum:GetState()
             local isCasting = (state == Enum.HumanoidStateType.Attacking) or (state == Enum.HumanoidStateType.Action) or (state == Enum.HumanoidStateType.Physics) or hrp.Anchored
-            
             if isCasting then
                 if flyMovers.bv then flyMovers.bv.Velocity = Vector3.new(0,0,0) end
                 return
@@ -199,30 +195,43 @@ task.spawn(function()
     end
 end)
 
--- ===== AUTO PLAY (UI) =====
+-- ===== AUTO PLAY LOGIC (FIXED) =====
 task.spawn(function()
-    while task.wait(1) do
+    while task.wait(1.5) do
         if autoReadyEnabled then
             local pg = LocalPlayer:FindFirstChild("PlayerGui")
             if pg then
-                -- Ready
+                -- 1. Жмем Ready (UNREADY) в меню выбора персонажа
                 local chrGui = pg:FindFirstChild("ChrGUI")
                 if chrGui and chrGui:FindFirstChild("Frame-Ready") then
                     local btn = chrGui["Frame-Ready"]:FindFirstChild("Menu") and chrGui["Frame-Ready"]["Menu"]:FindFirstChild("Ready") and chrGui["Frame-Ready"]["Menu"]["Ready"]:FindFirstChild("Button")
-                    if btn and btn.Visible then forceClickUI(btn) end
+                    if btn and btn.Visible then 
+                        forceClickUI(btn) 
+                    end
                 end
-                -- Continue
+                
+                -- 2. Жмем Continue (после выбора титана/сложности)
                 local modeResult = pg:FindFirstChild("ModeResult")
                 if modeResult and modeResult:FindFirstChild("Root") then
                     local btn = modeResult["Root"]:FindFirstChild("Holder") and modeResult["Root"]["Holder"]:FindFirstChild("Content") and modeResult["Root"]["Holder"]["Content"]:FindFirstChild("Footer") and modeResult["Root"]["Holder"]["Content"]["Footer"]:FindFirstChild("Continue")
-                    if btn and btn.Visible then forceClickUI(btn) end
+                    if btn and btn.Visible then 
+                        forceClickUI(btn) 
+                    end
                 end
-                -- Next / Replay
+                
+                -- 3. Жмем Next / Replay (после волны)
                 for _, gui in ipairs(pg:GetDescendants()) do
                     if (gui:IsA("TextButton") or gui:IsA("ImageButton")) and gui.Visible then
                         local text = string.lower(gui.Text or "")
+                        local lbl = gui:FindFirstChildWhichIsA("TextLabel")
+                        if lbl then text = text .. " " .. string.lower(lbl.Text or "") end
+                        
                         if string.find(text, "next") or string.find(text, "replay") or string.find(text, "lets go") then
-                            forceClickUI(gui)
+                            -- Исключаем кнопки сложности, чтобы не нажать их случайно
+                            if not string.find(text, "hard") and not string.find(text, "insane") then
+                                forceClickUI(gui)
+                                break
+                            end
                         end
                     end
                 end
@@ -237,9 +246,11 @@ task.spawn(function()
                         local text = string.lower(gui.Text or "")
                         local lbl = gui:FindFirstChildWhichIsA("TextLabel")
                         if lbl then text = text .. " " .. string.lower(lbl.Text or "") end
+                        
+                        -- Ищем точное совпадение с выбранной сложностью
                         if string.find(text, string.lower(selectedDifficulty)) then
                             forceClickUI(gui)
-                            task.wait(1)
+                            task.wait(1.5) -- Пауза, чтобы не спамить
                         end
                     end
                 end
