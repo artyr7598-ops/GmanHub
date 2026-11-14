@@ -1,4 +1,4 @@
--- ===== STBB Ultimate Hub (TP + God Mode + Auto Ready Zone) =====
+-- ===== Gman Hub (Auto Reset 100%) =====
 getgenv().SecureMode = true
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
@@ -13,7 +13,7 @@ local LocalPlayer = Players.LocalPlayer
 local Window = Rayfield:CreateWindow({
     Name = "Gman Hub (STBB)",
     LoadingTitle = "Loading...",
-    LoadingSubtitle = "by Gman + Vais",
+    LoadingSubtitle = "by Gman",
     Theme = "AmberGlow",
     ToggleUIKeybind = "K"
 })
@@ -21,23 +21,21 @@ local Window = Rayfield:CreateWindow({
 -- ===== VARIABLES =====
 local espEnabled = false
 local autoTPEnabled = false
-local autoClickEnabled = false
 local speedEnabled = false
 local speedValue = 16
 local flyEnabled = false
 local flySpeed = 50
 local flyMovers = {}
 local tpDelay = 0.2
-local tpOffsetZ = 2
-local tpOffsetY = 1
+local tpOffsetY = 3
 local tpMaxDist = 300
 local lockedTarget = nil
 
--- AUTO RESET GOD MODE
+-- GOD MODE
 local autoResetEnabled = false
-local resetPercent = 15
+local resetPercent = 80 -- По умолчанию 80
 
--- AUTO READY
+-- AUTO PLAY
 local autoReadyEnabled = false
 local cachedZone = nil
 
@@ -71,23 +69,14 @@ local function cleanFlyMovers()
     end
 end
 
--- ===== AUTO READY ZONE LOOP (ИЗ VAISHUB) =====
+-- ===== AUTO READY (ZONE) =====
 task.spawn(function()
     while task.wait(2) do
         if autoReadyEnabled and (not cachedZone or not cachedZone:IsDescendantOf(workspace)) then
             cachedZone = nil
-            local maps = workspace:FindFirstChild("Maps") or workspace:FindFirstChild("Map")
-            local targetFolder = maps or workspace
-            for _, v in pairs(targetFolder:GetChildren()) do
+            for _, v in pairs(workspace:GetDescendants()) do
                 if v:IsA("BasePart") and (string.find(string.lower(v.Name), "ready") or string.find(string.lower(v.Name), "zone")) then
                     cachedZone = v; break
-                end
-            end
-            if not cachedZone then
-                for _, v in pairs(workspace:GetDescendants()) do
-                    if v:IsA("BasePart") and (string.find(string.lower(v.Name), "ready") or string.find(string.lower(v.Name), "zone")) then
-                        cachedZone = v; break
-                    end
                 end
             end
         end
@@ -98,14 +87,13 @@ task.spawn(function()
     while task.wait(0.3) do
         if autoReadyEnabled and cachedZone and cachedZone:IsDescendantOf(workspace) then
             local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                if (cachedZone.Position - hrp.Position).Magnitude <= 150 then
-                    task.wait(5)
-                    if autoReadyEnabled and cachedZone and cachedZone:IsDescendantOf(workspace) and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                        local currentHrp = LocalPlayer.Character.HumanoidRootPart
+            if hrp and (cachedZone.Position - hrp.Position).Magnitude <= 150 then
+                task.wait(5)
+                if autoReadyEnabled and cachedZone and cachedZone:IsDescendantOf(workspace) then
+                    local currentHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    if currentHrp then
                         local angle = math.random() * math.pi * 2
-                        local offset = math.random() * 3
-                        currentHrp.CFrame = CFrame.new(cachedZone.Position + Vector3.new(math.cos(angle)*offset, 3, math.sin(angle)*offset))
+                        currentHrp.CFrame = CFrame.new(cachedZone.Position + Vector3.new(math.cos(angle)*3, 3, math.sin(angle)*3))
                         task.wait(4)
                     end
                 end
@@ -114,7 +102,7 @@ task.spawn(function()
     end
 end)
 
--- ===== GOD MODE LOOP =====
+-- ===== GOD MODE (AUTO RESET) =====
 RunService.Heartbeat:Connect(function()
     if autoResetEnabled and LocalPlayer.Character then
         local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
@@ -140,11 +128,9 @@ RunService.RenderStepped:Connect(function()
                 bv.Parent = hrp
                 local bg = Instance.new("BodyGyro")
                 bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-                bg.P = 10000
-                bg.D = 500
+                bg.P = 10000; bg.D = 500
                 bg.Parent = hrp
-                flyMovers.bv = bv
-                flyMovers.bg = bg
+                flyMovers.bv = bv; flyMovers.bg = bg
             end
             local cam = Workspace.CurrentCamera
             local moveDir = Vector3.new(0, 0, 0)
@@ -152,6 +138,8 @@ RunService.RenderStepped:Connect(function()
             if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
             if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.CFrame.RightVector end
             if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir = moveDir - Vector3.new(0, 1, 0) end
             if moveDir.Magnitude > 0 then moveDir = moveDir.Unit end
             flyMovers.bv.Velocity = moveDir * flySpeed
             flyMovers.bg.CFrame = cam.CFrame
@@ -167,7 +155,7 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- ===== ЖЕСТКИЙ ТАРГЕТ (ПОЛИ-СТИЛЬ) =====
+-- ===== TARGET LOCK =====
 local function getTargetEnemy()
     local myChar = LocalPlayer.Character
     if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return nil end
@@ -175,7 +163,11 @@ local function getTargetEnemy()
     if lockedTarget and lockedTarget.Parent then
         local hum = lockedTarget:FindFirstChildOfClass("Humanoid")
         local hrp = getModelHRP(lockedTarget)
-        if hum and hum.Health > 0 and hrp and not hrp.Anchored and (hrp.Position - myPos).Magnitude <= tpMaxDist then return hrp else lockedTarget = nil end
+        if hum and hum.Health > 0 and hrp and not hrp.Anchored and (hrp.Position - myPos).Magnitude <= tpMaxDist then 
+            return hrp 
+        else 
+            lockedTarget = nil 
+        end
     end
     local closest = nil
     local shortestDist = math.huge
@@ -195,68 +187,10 @@ local function getTargetEnemy()
     return nil
 end
 
--- ===== TAB 1: COMBAT =====
-local CombatTab = Window:CreateTab("Combat")
-CombatTab:CreateSection("Auto Reset God Mode")
-CombatTab:CreateToggle({ Name = "Enable Auto Reset God Mode", CurrentValue = false, Callback = function(state) autoResetEnabled = state end })
-CombatTab:CreateSlider({ Name = "Reset HP Percent (%)", Range = {5, 50}, Increment = 1, Suffix = "%", CurrentValue = 15, Callback = function(v) resetPercent = v end })
-
-CombatTab:CreateSection("Auto Skills")
-local autoSkillEnabled = false
-local skillDelay = 1
-local activeKeys = {}
-local KeyList = {"Q", "E", "R", "T", "Y", "F", "G", "H", "Z", "X", "C", "V", "B", "Space"}
-for _, keyName in ipairs(KeyList) do
-    CombatTab:CreateToggle({ Name = keyName, Callback = function(state) activeKeys[keyName] = state end })
-end
-CombatTab:CreateSlider({ Name = "Skill Delay", Range = {0.1, 5}, Increment = 0.1, CurrentValue = 1, Callback = function(v) skillDelay = v end })
-CombatTab:CreateToggle({ Name = "Enable Auto Press", Callback = function(state)
-    autoSkillEnabled = state
-    if state then
-        task.spawn(function()
-            while autoSkillEnabled do
-                local char = LocalPlayer.Character
-                local hum = char and char:FindFirstChildOfClass("Humanoid")
-                if char and hum and hum.Health > 0 then
-                    for _, keyName in ipairs(KeyList) do
-                        if activeKeys[keyName] then
-                            local keyCode = Enum.KeyCode[keyName]
-                            pcall(function() VirtualInputManager:SendKeyEvent(true, keyCode, false, game) end)
-                            task.wait(0.05)
-                            pcall(function() VirtualInputManager:SendKeyEvent(false, keyCode, false, game) end)
-                            task.wait(0.05)
-                        end
-                    end
-                end
-                task.wait(skillDelay)
-            end
-        end)
-    end
-end })
-
-CombatTab:CreateSection("Auto Clicker")
-local clickDelay = 0.1
-CombatTab:CreateSlider({ Name = "Click Delay", Range = {0.05, 1}, Increment = 0.05, CurrentValue = 0.1, Callback = function(v) clickDelay = v end })
-CombatTab:CreateToggle({ Name = "Enable Auto Click", Callback = function(state)
-    autoClickEnabled = state
-    if state then
-        task.spawn(function()
-            while autoClickEnabled do
-                pcall(function()
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-                    task.wait(0.05)
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
-                end)
-                task.wait(clickDelay)
-            end
-        end)
-    end
-end })
-
--- ===== TAB 2: TELEPORT =====
+-- ===== TABS =====
 local TPTab = Window:CreateTab("Teleport")
-TPTab:CreateSection("Poly-Style TP")
-TPTab:CreateToggle({ Name = "Enable Auto TP (Hard Lock)", Callback = function(state)
+TPTab:CreateSection("Hard Lock TP")
+TPTab:CreateToggle({ Name = "Enable Auto TP", Callback = function(state)
     autoTPEnabled = state
     if not state then lockedTarget = nil end
     if state then
@@ -264,82 +198,64 @@ TPTab:CreateToggle({ Name = "Enable Auto TP (Hard Lock)", Callback = function(st
             while autoTPEnabled do
                 local targetHRP = getTargetEnemy()
                 if targetHRP and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = targetHRP.CFrame * CFrame.new(0, tpOffsetY, tpOffsetZ)
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = targetHRP.CFrame * CFrame.new(0, tpOffsetY, 0)
                 end
                 task.wait(tpDelay)
             end
         end)
     end
 end })
-TPTab:CreateButton({ Name = "Force Clear Target", Callback = function() lockedTarget = nil end })
+TPTab:CreateButton({ Name = "Clear Target", Callback = function() lockedTarget = nil end })
 TPTab:CreateSlider({ Name = "TP Speed", Range = {0.05, 1}, Increment = 0.05, CurrentValue = 0.2, Callback = function(v) tpDelay = v end })
 TPTab:CreateSlider({ Name = "Max TP Distance", Range = {50, 1000}, Increment = 10, CurrentValue = 300, Callback = function(v) tpMaxDist = v end })
 
--- ===== TAB 3: MOVEMENT =====
 local MoveTab = Window:CreateTab("Movement")
-MoveTab:CreateSection("Speed Hack")
-MoveTab:CreateSlider({ Name = "Speed Value", Range = {16, 400}, Increment = 1, CurrentValue = 16, Callback = function(v) speedValue = v end })
+MoveTab:CreateSection("Speed")
+MoveTab:CreateSlider({ Name = "Speed", Range = {16, 400}, Increment = 1, CurrentValue = 16, Callback = function(v) speedValue = v end })
 MoveTab:CreateToggle({ Name = "Enable Speed", Callback = function(state) speedEnabled = state; if not state and LocalPlayer.Character then LocalPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = 16 end end })
-MoveTab:CreateSection("Fly Hack")
+MoveTab:CreateSection("Fly")
 MoveTab:CreateSlider({ Name = "Fly Speed", Range = {16, 400}, Increment = 1, CurrentValue = 50, Callback = function(v) flySpeed = v end })
 MoveTab:CreateToggle({ Name = "Enable Fly", Callback = function(state) flyEnabled = state; if not state then cleanFlyMovers() end end })
 
--- ===== TAB 4: VISUALS =====
-local VisualsTab = Window:CreateTab("Visuals")
-VisualsTab:CreateSection("Enemy ESP")
-VisualsTab:CreateToggle({ Name = "Enable Enemy ESP (Red)", Callback = function(state)
-    espEnabled = state
-    if not state then
-        for _, obj in ipairs(Workspace:GetDescendants()) do
-            local hl = obj:FindFirstChild("GmanESP")
-            if hl then hl:Destroy() end
-        end
-    end
-end })
-task.spawn(function()
-    while task.wait(0.2) do
-        if espEnabled then
-            for _, obj in ipairs(Workspace:GetDescendants()) do
-                if isValidEnemy(obj) then
-                    local hl = obj:FindFirstChild("GmanESP")
-                    if not hl then
-                        hl = Instance.new("Highlight")
-                        hl.Name = "GmanESP"
-                        hl.Adornee = obj
-                        hl.FillColor = Color3.fromRGB(255, 0, 0)
-                        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                        hl.FillTransparency = 0.5
-                        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                        hl.Parent = obj
+local CombatTab = Window:CreateTab("Combat")
+CombatTab:CreateSection("Auto Reset God Mode")
+CombatTab:CreateToggle({ Name = "Enable God Mode", CurrentValue = false, Callback = function(state) autoResetEnabled = state end })
+
+-- ТУТ ТЕПЕРЬ ДО 100%
+CombatTab:CreateSlider({ Name = "Reset at HP (%)", Range = {5, 100}, Increment = 1, CurrentValue = 80, Callback = function(v) resetPercent = v end })
+
+CombatTab:CreateSection("Auto Skills")
+local autoSkillEnabled = false
+local activeKeys = {}
+local KeyList = {"Q", "E", "R", "T", "Y", "F", "G", "H", "Z", "X", "C", "V", "B", "Space"}
+for _, k in ipairs(KeyList) do CombatTab:CreateToggle({ Name = k, Callback = function(s) activeKeys[k] = s end }) end
+CombatTab:CreateSlider({ Name = "Skill Delay", Range = {0.1, 5}, Increment = 0.1, CurrentValue = 1, Callback = function(v) skillDelay = v end })
+CombatTab:CreateToggle({ Name = "Enable Auto Skills", Callback = function(state)
+    autoSkillEnabled = state
+    if state then
+        task.spawn(function()
+            while autoSkillEnabled do
+                for _, k in ipairs(KeyList) do
+                    if activeKeys[k] then
+                        pcall(function() VirtualInputManager:SendKeyEvent(true, Enum.KeyCode[k], false, game) end)
+                        task.wait(0.05)
+                        pcall(function() VirtualInputManager:SendKeyEvent(false, Enum.KeyCode[k], false, game) end)
+                        task.wait(0.05)
                     end
                 end
+                task.wait(skillDelay or 1)
             end
-        end
+        end)
     end
-end)
+end })
 
--- ===== TAB 5: AUTO PLAY (READY ZONE) =====
 local AutoPlayTab = Window:CreateTab("Auto Play")
-AutoPlayTab:CreateSection("Auto Ready (Zone Finder)")
-
-AutoPlayTab:CreateToggle({
-    Name = "Enable Auto Ready (Teleports to Zone)",
-    CurrentValue = false,
-    Callback = function(state)
-        autoReadyEnabled = state
-        if state then
-            Rayfield:Notify({Title = "Auto Ready", Content = "Ищем зону готовности на карте...", Duration = 3})
-        end
-    end
-})
+AutoPlayTab:CreateSection("Auto Ready (Zone)")
+AutoPlayTab:CreateToggle({ Name = "Enable Auto Ready", Callback = function(state) autoReadyEnabled = state end })
 
 LocalPlayer.Idled:Connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
-Rayfield:Notify({
-    Title = "Gman Hub",
-    Content = "Auto Ready Zone added! Press K.",
-    Duration = 5
-})
+Rayfield:Notify({ Title = "Gman Hub", Content = "Loaded. Press K to open.", Duration = 5 })
