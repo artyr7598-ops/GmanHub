@@ -1,4 +1,4 @@
--- ===== STBB Gman Hub (Poly-Style Upgrade) =====
+-- ===== STBB Ultimate Hub (TP + God Mode + Auto Ready Zone) =====
 getgenv().SecureMode = true
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
@@ -13,14 +13,13 @@ local LocalPlayer = Players.LocalPlayer
 local Window = Rayfield:CreateWindow({
     Name = "Gman Hub (STBB)",
     LoadingTitle = "Loading...",
-    LoadingSubtitle = "by Gman",
+    LoadingSubtitle = "by Gman + Vais",
     Theme = "AmberGlow",
     ToggleUIKeybind = "K"
 })
 
 -- ===== VARIABLES =====
 local espEnabled = false
-local espAllHumansEnabled = false
 local autoTPEnabled = false
 local autoClickEnabled = false
 local speedEnabled = false
@@ -34,11 +33,14 @@ local tpOffsetY = 1
 local tpMaxDist = 300
 local lockedTarget = nil
 
-local godModeEnabled = false
-local autoPlayEnabled = false
-local targetMission = "Hard"
+-- AUTO RESET GOD MODE
+local autoResetEnabled = false
+local resetPercent = 15
 
--- ===== ФУНКЦИИ =====
+-- AUTO READY
+local autoReadyEnabled = false
+local cachedZone = nil
+
 local function getModelHRP(model)
     if not model then return nil end
     return model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Torso") or model:FindFirstChild("UpperTorso") or model.PrimaryPart
@@ -69,27 +71,58 @@ local function cleanFlyMovers()
     end
 end
 
--- Универсальный клик по кнопке (без мышки)
-local function forceSignalClick(btn)
-    if not btn or not btn.Visible then return false end
-    pcall(function()
-        if getconnections then
-            local conns = getconnections(btn.MouseButton1Click)
-            if conns then for _, c in pairs(conns) do c:Fire() end end
+-- ===== AUTO READY ZONE LOOP (ИЗ VAISHUB) =====
+task.spawn(function()
+    while task.wait(2) do
+        if autoReadyEnabled and (not cachedZone or not cachedZone:IsDescendantOf(workspace)) then
+            cachedZone = nil
+            local maps = workspace:FindFirstChild("Maps") or workspace:FindFirstChild("Map")
+            local targetFolder = maps or workspace
+            for _, v in pairs(targetFolder:GetChildren()) do
+                if v:IsA("BasePart") and (string.find(string.lower(v.Name), "ready") or string.find(string.lower(v.Name), "zone")) then
+                    cachedZone = v; break
+                end
+            end
+            if not cachedZone then
+                for _, v in pairs(workspace:GetDescendants()) do
+                    if v:IsA("BasePart") and (string.find(string.lower(v.Name), "ready") or string.find(string.lower(v.Name), "zone")) then
+                        cachedZone = v; break
+                    end
+                end
+            end
         end
-        if firesignal then firesignal(btn.MouseButton1Click) end
-        btn:Activate()
-    end)
-    return true
-end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(0.3) do
+        if autoReadyEnabled and cachedZone and cachedZone:IsDescendantOf(workspace) then
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                if (cachedZone.Position - hrp.Position).Magnitude <= 150 then
+                    task.wait(5)
+                    if autoReadyEnabled and cachedZone and cachedZone:IsDescendantOf(workspace) and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                        local currentHrp = LocalPlayer.Character.HumanoidRootPart
+                        local angle = math.random() * math.pi * 2
+                        local offset = math.random() * 3
+                        currentHrp.CFrame = CFrame.new(cachedZone.Position + Vector3.new(math.cos(angle)*offset, 3, math.sin(angle)*offset))
+                        task.wait(4)
+                    end
+                end
+            end
+        end
+    end
+end)
 
 -- ===== GOD MODE LOOP =====
 RunService.Heartbeat:Connect(function()
-    if godModeEnabled and LocalPlayer.Character then
+    if autoResetEnabled and LocalPlayer.Character then
         local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if hum then
-            hum.MaxHealth = math.huge
-            hum.Health = math.huge
+        if hum and hum.Health > 0 then
+            local threshold = hum.MaxHealth * (resetPercent / 100)
+            if hum.Health <= threshold then
+                pcall(function() LocalPlayer.Character:BreakJoints() end)
+            end
         end
     end
 end)
@@ -134,20 +167,39 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- ===== TAB 1: COMBAT (GOD MODE) =====
-local CombatTab = Window:CreateTab("Combat")
-CombatTab:CreateSection("Player Mods")
-CombatTab:CreateToggle({ 
-    Name = "God Mode (Infinite HP)", 
-    CurrentValue = false, 
-    Callback = function(state) 
-        godModeEnabled = state 
-        if not state and LocalPlayer.Character then
-            local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-            if hum then hum.MaxHealth = 100 hum.Health = 100 end
+-- ===== ЖЕСТКИЙ ТАРГЕТ (ПОЛИ-СТИЛЬ) =====
+local function getTargetEnemy()
+    local myChar = LocalPlayer.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return nil end
+    local myPos = myChar.HumanoidRootPart.Position
+    if lockedTarget and lockedTarget.Parent then
+        local hum = lockedTarget:FindFirstChildOfClass("Humanoid")
+        local hrp = getModelHRP(lockedTarget)
+        if hum and hum.Health > 0 and hrp and not hrp.Anchored and (hrp.Position - myPos).Magnitude <= tpMaxDist then return hrp else lockedTarget = nil end
+    end
+    local closest = nil
+    local shortestDist = math.huge
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if isValidEnemy(obj) then
+            local hrp = getModelHRP(obj)
+            if hrp then
+                local dist = (hrp.Position - myPos).Magnitude
+                if dist < shortestDist and dist <= tpMaxDist then
+                    shortestDist = dist
+                    closest = obj
+                end
+            end
         end
-    end 
-})
+    end
+    if closest then lockedTarget = closest; return getModelHRP(closest) end
+    return nil
+end
+
+-- ===== TAB 1: COMBAT =====
+local CombatTab = Window:CreateTab("Combat")
+CombatTab:CreateSection("Auto Reset God Mode")
+CombatTab:CreateToggle({ Name = "Enable Auto Reset God Mode", CurrentValue = false, Callback = function(state) autoResetEnabled = state end })
+CombatTab:CreateSlider({ Name = "Reset HP Percent (%)", Range = {5, 50}, Increment = 1, Suffix = "%", CurrentValue = 15, Callback = function(v) resetPercent = v end })
 
 CombatTab:CreateSection("Auto Skills")
 local autoSkillEnabled = false
@@ -266,116 +318,17 @@ task.spawn(function()
     end
 end)
 
--- ===== TAB 5: AUTO PLAY (VOTING & READY) =====
+-- ===== TAB 5: AUTO PLAY (READY ZONE) =====
 local AutoPlayTab = Window:CreateTab("Auto Play")
-AutoPlayTab:CreateSection("Mission Selection (Lobby)")
-
--- Дропдаун для выбора миссии
-AutoPlayTab:CreateDropdown({
-    Name = "Target Mission",
-    Options = {"Hard", "Extreme", "Insane", "Boss Rush"},
-    CurrentOption = {"Hard"},
-    MultipleOptions = false,
-    Flag = "MissionSelect",
-    Callback = function(option)
-        targetMission = option[1]
-    end,
-})
-
--- Поиск и клик по карточке выбранной миссии
-AutoPlayTab:CreateButton({
-    Name = "Select Mission Now",
-    Callback = function()
-        local pg = LocalPlayer:FindFirstChild("PlayerGui")
-        if not pg then return end
-        
-        local found = false
-        -- Ищем кнопку, внутри которой есть текст нужной миссии
-        for _, obj in ipairs(pg:GetDescendants()) do
-            if obj:IsA("TextButton") or obj:IsA("ImageButton") then
-                -- Проверяем текст внутри этой кнопки
-                local hasText = false
-                for _, child in ipairs(obj:GetDescendants()) do
-                    if child:IsA("TextLabel") or child:IsA("TextButton") then
-                        if string.find(string.lower(child.Text), string.lower(targetMission)) then
-                            hasText = true
-                            break
-                        end
-                    end
-                end
-                
-                -- Если нашли - кликаем
-                if hasText and obj.Visible then
-                    forceSignalClick(obj)
-                    found = true
-                    break
-                end
-            end
-        end
-        
-        if found then
-            Rayfield:Notify({Title = "Auto Play", Content = "Clicked " .. targetMission, Duration = 2})
-        else
-            Rayfield:Notify({Title = "Auto Play", Content = "Mission not found.", Duration = 2})
-        end
-    end
-})
-
-AutoPlayTab:CreateButton({
-    Name = "Vote / Confirm (Bottom Button)",
-    Callback = function()
-        local pg = LocalPlayer:FindFirstChild("PlayerGui")
-        if not pg then return end
-        for _, obj in ipairs(pg:GetDescendants()) do
-            if (obj:IsA("TextButton") or obj:IsA("ImageButton")) and obj.Visible then
-                local text = string.lower(obj.Text or "")
-                if string.find(text, "vote") or string.find(text, "confirm") or string.find(text, "select") then
-                    forceSignalClick(obj)
-                    break
-                end
-            end
-        end
-    end
-})
-
-AutoPlayTab:CreateSection("AFK Ready (Character Menu)")
+AutoPlayTab:CreateSection("Auto Ready (Zone Finder)")
 
 AutoPlayTab:CreateToggle({
-    Name = "Enable Auto Play (AFK Ready)",
+    Name = "Enable Auto Ready (Teleports to Zone)",
     CurrentValue = false,
     Callback = function(state)
-        autoPlayEnabled = state
+        autoReadyEnabled = state
         if state then
-            task.spawn(function()
-                while autoPlayEnabled do
-                    local pg = LocalPlayer:FindFirstChild("PlayerGui")
-                    if pg then
-                        -- Жмем UNREADY / CONTINUE
-                        local chrGui = pg:FindFirstChild("ChrGUI")
-                        if chrGui and chrGui:FindFirstChild("Frame-Ready") then
-                            local btn = chrGui["Frame-Ready"]:FindFirstChild("Menu") and chrGui["Frame-Ready"]["Menu"]:FindFirstChild("Ready") and chrGui["Frame-Ready"]["Menu"]["Ready"]:FindFirstChild("Button")
-                            if btn and btn.Visible then forceSignalClick(btn) end
-                        end
-                        
-                        local modeResult = pg:FindFirstChild("ModeResult")
-                        if modeResult and modeResult:FindFirstChild("Root") then
-                            local btn = modeResult["Root"]:FindFirstChild("Holder") and modeResult["Root"]["Holder"]:FindFirstChild("Content") and modeResult["Root"]["Holder"]["Content"]:FindFirstChild("Footer") and modeResult["Root"]["Holder"]["Content"]["Footer"]:FindFirstChild("Continue")
-                            if btn and btn.Visible then forceSignalClick(btn) end
-                        end
-                        
-                        -- Жмем NEXT / REPLAY
-                        for _, gui in ipairs(pg:GetDescendants()) do
-                            if (gui:IsA("TextButton") or gui:IsA("ImageButton")) and gui.Visible then
-                                local text = string.lower(gui.Text or "")
-                                if string.find(text, "next") or string.find(text, "replay") or string.find(text, "lets go") then
-                                    forceSignalClick(gui)
-                                end
-                            end
-                        end
-                    end
-                    task.wait(1.5)
-                end
-            end)
+            Rayfield:Notify({Title = "Auto Ready", Content = "Ищем зону готовности на карте...", Duration = 3})
         end
     end
 })
@@ -384,3 +337,9 @@ LocalPlayer.Idled:Connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new())
 end)
+
+Rayfield:Notify({
+    Title = "Gman Hub",
+    Content = "Auto Ready Zone added! Press K.",
+    Duration = 5
+})
